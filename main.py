@@ -1,4 +1,4 @@
-import pygame, requests, sys, os
+import pygame, pygame_gui, requests, sys, os
 
 
 class MapParams(object):
@@ -27,6 +27,13 @@ class MapParams(object):
         elif event.key == pygame.K_DOWN and self.lat > -85:
             self.lat -= my_step * 2 ** (15 - self.zoom)
 
+    def update_type(self, new_type):
+        if new_type == 'схема':
+            self.type = 'map'
+        if new_type == 'спутник':
+            self.type = 'sat'
+        if new_type == 'гибрид':
+            self.type = 'sat,skl'
 
 def load_map(mp):
     map_request = f"http://static-maps.yandex.ru/1.x/?ll={mp.ll()}&z={mp.zoom}&l={mp.type}"
@@ -41,14 +48,34 @@ def main():
     pygame.init()
     screen = pygame.display.set_mode((600, 450))
     mp = MapParams()
+
+    gui_manager = pygame_gui.UIManager((600, 450))
+
+    map_type_menu = pygame_gui.elements.UIDropDownMenu(
+        options_list = ["схема", "спутник", "гибрид"], starting_option='схема',
+        relative_rect = pygame.Rect((10, 10), (100, 50)),
+        manager=gui_manager
+    )
+
+    clock = pygame.time.Clock()
     while True:
-        event = pygame.event.wait()
-        if event.type == pygame.QUIT:
-            break
-        elif event.type == pygame.KEYDOWN:
-            mp.update(event)
+        time_delta = clock.tick(60) / 1000.0
+        # event = pygame.event.wait()
+        # не уверее что это необходимо, но на всякий сделал так
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                break
+            elif event.type == pygame.KEYDOWN:
+                mp.update(event)
+            elif event.type == pygame.USEREVENT:
+                if event.user_type == 32859: # id изменения значения меню (пишет поменять user_type на type, не слушай)
+                    mp.update_type(event.text)
+            gui_manager.process_events(event)
+
         map_file = load_map(mp)
         screen.blit(pygame.image.load(map_file), (0, 0))
+        gui_manager.update(time_delta)
+        gui_manager.draw_ui(screen)
         pygame.display.flip()
     pygame.quit()
     os.remove(map_file)
